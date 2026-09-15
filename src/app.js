@@ -10,25 +10,28 @@ const rl = readline.createInterface({
 const askQuestion = (query) => new Promise((resolve) => rl.question(query, resolve));
 
 async function main() {
-  console.clear();
-  console.log('==================================================');
-  console.log('    EVALUACIÓN PRÁCTICA - ASINCRONÍA EN JS       ');
-  console.log('==================================================');
-  console.log('1. Listar tareas pendientes por usuario');
-  console.log('2. Buscar usuario, sus álbumes y fotos (por username)');
-  console.log('3. Filtrar posts por ID o correo y ver comentarios');
-  console.log('4. Obtener usuarios mapeados');
-  console.log('5. Estructura completa: Usuarios, Posts, Comentarios y Álbumes');
-  console.log('0. Salir');
-  console.log('--------------------------------------------------');
+  let continueRunning = true;
 
-  const option = await askQuestion('Seleccione el número del ejercicio a ejecutar: ');
+  while (continueRunning) {
+    console.clear();
+    console.log('==================================================');
+    console.log('    EVALUACIÓN PRÁCTICA - ASINCRONÍA EN JS       ');
+    console.log('==================================================');
+    console.log('1. Listar tareas pendientes por usuario');
+    console.log('2. Buscar usuario, sus álbumes y fotos (por username)');
+    console.log('3. Filtrar posts por nombre o título y ver comentarios');
+    console.log('4. Obtener usuarios con nombre y teléfono');
+    console.log('5. Estructura completa: Usuarios, Posts, Comentarios y Álbumes');
+    console.log('0. Salir');
+    console.log('--------------------------------------------------');
 
-  // Detectar automáticamente la función de tareas pendientes sin importar su nombre
-  const getPendingFn = apiModules.getPendingTasksGroupedByUser || apiModules.getPendingTasks || Object.values(apiModules)[0];
+    const option = (await askQuestion('Seleccione el número del ejercicio a ejecutar: ')).trim();
 
-  try {
-    switch (option.trim()) {
+    try {
+      // Seleccionamos directamente la función pública exportada por el barril
+      const getPendingFn = apiModules.getPendingTasks;
+
+      switch (option) {
       case '1': {
         console.log('\n--- Ejecutando Ejercicio 1 ---');
         const tasks = await getPendingFn();
@@ -43,10 +46,9 @@ async function main() {
         break;
       }
       case '3': {
-        const input = await askQuestion('\nIngrese el ID de la publicación (ej. 1) o un correo: ');
-        console.log('\n--- Consultando comentarios ---');
-        const criteria = isNaN(input) ? { email: input } : { postId: Number(input) };
-        const commentsData = await apiModules.getCommentsByPostOrEmail(criteria);
+        const titleQuery = await askQuestion('\nIngrese el nombre o una palabra del título del post: ');
+        console.log('\n--- Consultando posts y comentarios ---');
+        const commentsData = await apiModules.getPostsByTitleWithComments(titleQuery);
         console.dir(commentsData, { depth: null, colors: true });
         break;
       }
@@ -64,17 +66,21 @@ async function main() {
       }
       case '0':
         console.log('\n¡Hasta luego!');
+        continueRunning = false;
         rl.close();
-        return;
+        break;
       default:
         console.log('\nOpción no válida. Intente nuevamente.');
+        break;
+      }
+    } catch (error) {
+      console.error('\nError al ejecutar la opción:', error.message);
     }
-  } catch (error) {
-    console.error('\nError al ejecutar la opción:', error.message);
-  }
 
-  await askQuestion('\nPresione ENTER para volver al menú...');
-  main();
+    if (continueRunning) {
+      await askQuestion('\nPresione ENTER para volver al menú...');
+    }
+  }
 }
 
 main();

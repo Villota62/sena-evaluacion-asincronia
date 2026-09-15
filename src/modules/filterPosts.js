@@ -1,89 +1,43 @@
-// Exportamos la función asíncrona para obtener comentarios por post o por correo de usuario
-export async function getCommentsByPostOrEmail(criteria) {
+// Exportamos la función asíncrona para filtrar publicaciones por título y agregar comentarios
+export async function getPostsByTitleWithComments(titleQuery) {
   try {
-    // Validamos que se proporcione un objeto con criterios de búsqueda
-    if (!criteria || typeof criteria !== 'object') {
-      throw new Error('Debe proporcionar un objeto de criterio válido ({ postId } o { email }).');
+    // Validamos que el texto recibido sea una cadena con contenido útil
+    if (typeof titleQuery !== 'string' || !titleQuery.trim()) {
+      throw new Error('Debe proporcionar un nombre o fragmento del título del post.');
     }
 
-    const { postId, email } = criteria;
+    // Consultamos todos los posts porque el filtro solicitado corresponde a su título
     const BASE_URL = 'https://jsonplaceholder.typicode.com';
+    const postsResponse = await fetch(`${BASE_URL}/posts`);
+    if (!postsResponse.ok) {
+      throw new Error(`Error al consultar los posts. Estado HTTP: ${postsResponse.status}`);
+    }
 
-    // Caso 1: Búsqueda por postId
-    if (postId !== undefined) {
-      if (typeof postId !== 'number' || postId <= 0) {
-        throw new Error('El parámetro postId debe ser un número entero positivo.');
-      }
+    const posts = await postsResponse.json();
+    const normalizedQuery = titleQuery.trim().toLowerCase();
+    const matchingPosts = posts.filter(post => post.title.toLowerCase().includes(normalizedQuery));
 
-      // Verificamos si la publicación existe
-      const postResponse = await fetch(`${BASE_URL}/posts/${postId}`);
-      if (postResponse.status === 404) {
-        throw new Error(`La publicación con postId ${postId} no existe.`);
-      }
-      if (!postResponse.ok) {
-        throw new Error('Error al verificar la existencia de la publicación.');
-      }
-
-      const post = await postResponse.json();
-
-      // Consultamos los comentarios asociados a la publicación
-      const commentsResponse = await fetch(`${BASE_URL}/posts/${postId}/comments`);
+    // Consultamos en paralelo los comentarios de cada publicación encontrada
+    const postsWithComments = await Promise.all(matchingPosts.map(async post => {
+      const commentsResponse = await fetch(`${BASE_URL}/posts/${post.id}/comments`);
       if (!commentsResponse.ok) {
-        throw new Error('Error al obtener los comentarios de la publicación.');
+        throw new Error(`Error al obtener comentarios del post ${post.id}.`);
       }
 
       const comments = await commentsResponse.json();
-
       return {
-        queryType: 'postId',
-        postId: post.id,
-        postTitle: post.title,
-        totalComments: comments.length,
-        comments: comments.map(comment => ({
-          id: comment.id,
-          name: comment.name,
-          email: comment.email,
-          body: comment.body
-        }))
+        id: post.id,
+        userId: post.userId,
+        title: post.title,
+        body: post.body,
+        comments
       };
-    }
+    }));
 
-    // Caso 2: Búsqueda por correo electrónico (email)
-    if (email !== undefined) {
-      if (typeof email !== 'string' || !email.trim()) {
-        throw new Error('El parámetro email debe ser una cadena de texto válida.');
-      }
-
-      // Filtramos la lista global de comentarios por el email ingresado
-      const response = await fetch(`${BASE_URL}/comments?email=${encodeURIComponent(email.trim())}`);
-      if (!response.ok) {
-        throw new Error('Error al consultar los comentarios por correo electrónico.');
-      }
-
-      const comments = await response.json();
-
-      if (comments.length === 0) {
-        throw new Error(`No se encontraron comentarios asociados al correo: "${email}"`);
-      }
-
-      return {
-        queryType: 'email',
-        email: email.trim(),
-        totalComments: comments.length,
-        comments: comments.map(comment => ({
-          id: comment.id,
-          postId: comment.postId,
-          name: comment.name,
-          body: comment.body
-        }))
-      };
-    }
-
-    // Si el objeto no incluye postId ni email
-    throw new Error('Debe especificar al menos un criterio de búsqueda: "postId" o "email".');
+    return postsWithComments;
 
   } catch (error) {
-    console.error('[Error en getCommentsByPostOrEmail]:', error.message);
+    console.error('[Error en getPostsByTitleWithComments]:', error.message);
     throw error;
   }
 }

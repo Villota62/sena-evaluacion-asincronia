@@ -12,14 +12,10 @@ export async function getMappedUsers() {
 
     const users = await response.json();
 
-    // Transformamos los datos para extraer únicamente los campos requeridos
+    // Transformamos los datos para conservar únicamente el nombre y el teléfono
     const mappedUsers = users.map(user => Object.freeze({
-      id: user.id,
       name: user.name,
-      username: user.username,
-      email: user.email,
-      city: user.address?.city || 'Sin información',
-      companyName: user.company?.name || 'Sin información'
+      phone: user.phone
     }));
 
     // Retornamos el arreglo inmutable con los usuarios mapeados
